@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Social Media Privacy Risk Assessment</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            background: #f4f7fb;
+            color: #1f2937;
+        }
+
+        header {
+            background: #111827;
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        main {
+            max-width: 950px;
+            margin: 30px auto;
+            padding: 20px;
+        }
+
+        .card {
+            background: white;
+            padding: 25px;
+            margin-bottom: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+
+        .question {
+            padding: 15px;
+            margin: 12px 0;
+            background: #f8fafc;
+            border-radius: 8px;
+        }
+
+        .question p {
+            font-weight: bold;
+        }
+
+        label {
+            margin-right: 20px;
+        }
+
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 15px;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        #result {
+            display: none;
+        }
+
+        .score {
+            font-size: 42px;
+            font-weight: bold;
+        }
+        .risk-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: bold;
+    margin: 10px 0 20px 0;
+}
+
+        .category {
+            margin: 15px 0;
+        }
+
+        .bar {
+            background: #e5e7eb;
+            border-radius: 8px;
+            height: 18px;
+            overflow: hidden;
+        }
+
+        .fill {
+            background: #2563eb;
+            height: 100%;
+        }
+
+        .error {
+            color: #b91c1c;
+            font-weight: bold;
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Social Media Privacy Risk Assessment</h1>
+    <p>Defensive cybersecurity and privacy awareness framework</p>
+</header>
+
+<main>
+
+    <div class="card">
+        <h2>Privacy Questionnaire</h2>
+
+        <p>
+            Answer these questions using a fictional or demo profile.
+            Do not enter passwords, private messages, phone numbers,
+            addresses, or other sensitive personal information.
+        </p>
+
+        <div id="questions">
+            Loading questions...
+        </div>
+
+        <button onclick="submitAssessment()">
+            Calculate Privacy Risk
+        </button>
+
+        <p id="error" class="error"></p>
+    </div>
+
+    <div class="card" id="result">
+        <div class="card">
+    <h2>Risk Summary</h2>
+
+    <p>
+        The assessment identifies privacy exposure across multiple
+        social-media risk categories.
+    </p>
+
+    <ul>
+        <li><strong>Higher scores</strong> indicate greater privacy exposure.</li>
+        <li><strong>Lower scores</strong> indicate stronger privacy practices.</li>
+        <li>The overall score is calculated using category weights.</li>
+    </ul>
+
+    <button onclick="resetAssessment()">
+        Reset Assessment
+    </button>
+</div>
+        <h2>Assessment Result</h2>
+
+        <div class="score" id="score"></div>
+        <div class="risk-badge" id="riskBadge"></div>
+
+        <h3>Category Scores</h3>
+        <div id="categories"></div>
+
+        <div class="card">
+            <h3>Privacy Improvement Simulator</h3>
+
+            <p>
+                Simulate common privacy improvements using the current
+                assessment result.
+            </p>
+
+            <button onclick="simulateImprovement()">
+                Simulate Improvements
+            </button>
+
+            <p id="simulationResult"></p>
+        </div>
+
+        <h3>Privacy Findings</h3>
+        <ul id="findings"></ul>
+
+        <h3>Recommendations</h3>
+        <ul id="recommendations"></ul>
+    </div>
+
+</main>
+
+<script>
+
+let questions = [];
+
+/*
+    Load the 48 questions from the FastAPI backend.
+*/
+async function loadQuestions() {
+
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:8001/api/questions"
+        );
+
+        const data = await response.json();
+
+        questions = data.questions;
+
+        const container = document.getElementById("questions");
+
+        container.innerHTML = "";
+
+        questions.forEach(function(question, index) {
+
+            const div = document.createElement("div");
+
+            div.className = "question";
+
+            div.innerHTML = `
+                <p>${index + 1}. ${question.question}</p>
+
+                <label>
+                    <input
+                        type="radio"
+                        name="q${question.id}"
+                        value="yes"
+                    >
+                    Yes
+                </label>
+
+                <label>
+                    <input
+                        type="radio"
+                        name="q${question.id}"
+                        value="sometimes"
+                    >
+                    Sometimes
+                </label>
+
+                <label>
+                    <input
+                        type="radio"
+                        name="q${question.id}"
+                        value="no"
+                    >
+                    No
+                </label>
+            `;
+
+            container.appendChild(div);
+        });
+
+    } catch (error) {
+
+        document.getElementById("error").textContent =
+            "Unable to load questionnaire. Make sure the backend is running.";
+
+        console.error(error);
+    }
+}
+
+
+/*
+    Convert questionnaire answers into category scores.
+    This is a simple educational scoring model:
+    YES = higher privacy exposure
+    NO  = lower privacy exposure
+*/
+async function submitAssessment() {
+
+    const categoryTotals = {};
+    const categoryCounts = {};
+
+    let unanswered = 0;
+
+    questions.forEach(function(question) {
+
+        const selected = document.querySelector(
+            `input[name="q${question.id}"]:checked`
+        );
+
+        if (!selected) {
+            unanswered++;
+            return;
+        }
+
+        const category = question.category;
+
+        if (!categoryTotals[category]) {
+            categoryTotals[category] = 0;
+            categoryCounts[category] = 0;
+        }
+
+        categoryCounts[category]++;
+
+        const protectiveQuestions = [
+            18, 23, 25, 30, 31, 32, 33, 34, 35,
+            36, 37, 38, 44, 45, 46
+        ];
+
+        const isProtective = protectiveQuestions.includes(question.id);
+
+        if (isProtective) {
+            if (selected.value === "no") {
+                categoryTotals[category] += 100;
+            } else if (selected.value === "sometimes") {
+                categoryTotals[category] += 50;
+            }
+        } else {
+            if (selected.value === "yes") {
+                categoryTotals[category] += 100;
+            } else if (selected.value === "sometimes") {
+                categoryTotals[category] += 50;
+            }
+        }
+    });
+
+    if (unanswered > 0) {
+
+        document.getElementById("error").textContent =
+            "Please answer all 48 questions before calculating the score.";
+
+        return;
+    }
+
+    const categoryScores = {};
+
+    Object.keys(categoryTotals).forEach(function(category) {
+
+        categoryScores[category] =
+            Math.round(
+                categoryTotals[category] /
+                categoryCounts[category]
+            );
+    });
+
+    try {
+
+        const response = await fetch(
+            "http://127.0.0.1:8001/api/assessment",
+            {
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({
+                    category_scores: categoryScores
+                })
+            }
+        );
+
+        const data = await response.json();
+
+        displayResults(data);
+
+    } catch (error) {
+
+        document.getElementById("error").textContent =
+            "Unable to calculate assessment. Make sure the backend is running.";
+
+        console.error(error);
+    }
+}
+
+
+/*
+    Display assessment results.
+*/
+function displayResults(data) {
+
+    document.getElementById("result").style.display = "block";
+
+    document.getElementById("score").textContent =
+        data.overall_score + "/100";
+
+    const riskBadge = document.getElementById("riskBadge");
+
+    riskBadge.textContent =
+        "Risk Level: " + data.risk_level;
+
+    riskBadge.style.background =
+        data.risk_level === "LOW" ? "#dcfce7" :
+        data.risk_level === "MODERATE" ? "#fef3c7" :
+        data.risk_level === "HIGH" ? "#fed7aa" :
+        "#fecaca";
+
+    riskBadge.style.color =
+        data.risk_level === "LOW" ? "#166534" :
+        data.risk_level === "MODERATE" ? "#92400e" :
+        data.risk_level === "HIGH" ? "#9a3412" :
+        "#991b1b";
+
+
+    /*
+        Category scores
+    */
+
+    const categories =
+        document.getElementById("categories");
+
+    categories.innerHTML = "";
+
+    Object.entries(data.category_scores).forEach(
+        function([category, score]) {
+
+            const div = document.createElement("div");
+
+            div.className = "category";
+
+            div.innerHTML = `
+                <strong>${category}: ${score}/100</strong>
+
+                <div class="bar">
+                    <div
+                        class="fill"
+                        style="width:${score}%">
+                    </div>
+                </div>
+            `;
+
+            categories.appendChild(div);
+        }
+    );
+
+
+    /*
+        Findings
+    */
+
+    const findingsList =
+        document.getElementById("findings");
+
+    findingsList.innerHTML = "";
+
+    data.findings.forEach(function(finding) {
+
+        const li = document.createElement("li");
+
+        li.textContent = finding;
+
+        findingsList.appendChild(li);
+    });
+
+
+    /*
+        Recommendations
+    */
+
+    const recommendationList =
+        document.getElementById("recommendations");
+
+    recommendationList.innerHTML = "";
+
+    data.recommendations.forEach(function(item) {
+
+        const li = document.createElement("li");
+
+        li.textContent =
+            item.category + ": " +
+            item.recommendation;
+
+        recommendationList.appendChild(li);
+    });
+
+
+    window.scrollTo({
+        top: document.getElementById("result").offsetTop,
+        behavior: "smooth"
+    });
+}
+
+
+/*
+    Automatically load questions when page opens.
+*/
+loadQuestions();
+function resetAssessment() {
+    document.getElementById("result").style.display = "none";
+
+    document.querySelectorAll(
+        'input[type="radio"]'
+    ).forEach(function(input) {
+        input.checked = false;
+    });
+
+    window.scrollTo({
+        top: 0,
+        behavior: "smooth"
+    });
+}
+
+
+function simulateImprovement() {
+
+    const scoreText =
+        document.getElementById("score").textContent;
+
+    if (!scoreText) {
+        return;
+    }
+
+    const currentScore =
+        parseFloat(scoreText.replace("/100", ""));
+
+    const improvedScore =
+        Math.max(0, Math.round((currentScore * 0.65) * 10) / 10);
+
+    let riskLevel;
+
+    if (improvedScore <= 20) {
+        riskLevel = "LOW";
+    } else if (improvedScore <= 40) {
+        riskLevel = "MODERATE";
+    } else if (improvedScore <= 70) {
+        riskLevel = "HIGH";
+    } else {
+        riskLevel = "CRITICAL";
+    }
+
+    document.getElementById("simulationResult").textContent =
+        "Simulated improved score: " +
+        improvedScore +
+        "/100 — " +
+        riskLevel;
+}
+
+</script>
+
+</body>
+</html>
